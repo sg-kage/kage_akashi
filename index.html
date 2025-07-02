@@ -2,45 +2,75 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>討伐証最小化計算機（最終日配布100/200選択式・サンド/配布全消費・120優先・回数表示）</title>
+  <title>討伐証計算</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     body { font-family: sans-serif; margin: 2em; background: #181a1b; color: #eee;}
-    input[type="number"], select { width: 12em; background: #fff; color: #222; border: 1px solid #333; border-radius: 4px; padding: 0.3em 0.5em;}
-    label { display: block; margin-top: 1em;}
-    .section { border: 1px solid #333; padding: 1em; margin-bottom: 2em; border-radius: 8px; background: #23272b;}
-    .result { background: #223344; padding: 1em; margin-top: 1em; border-radius: 8px;}
-    .debug { background: #222; color: #7fef7f; font-size: 0.95em; padding: 0.8em; margin-top: 1em; border-radius: 8px;}
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2em;
+      max-width: 600px;
+      margin-bottom: 2em;
+    }
+    .section {
+      border: 1px solid #333; padding: 1em; border-radius: 8px; background: #23272b;
+      display: flex; flex-direction: column; gap: 1em;
+    }
+    .form-row {
+      display: flex;
+      align-items: center;
+      gap: 0.7em;
+    }
+    label { flex-shrink: 0; min-width: 7em; }
+    input[type="number"], select { width: 7em; background: #fff; color: #222; border: 1px solid #333; border-radius: 4px; padding: 0.3em 0.5em;}
     button[type="submit"] { background: #2d8cf0; color: #fff; border: none; border-radius: 4px; padding: 0.6em 1.4em; font-size: 1em; cursor: pointer; margin-top: 1em;}
     button[type="submit"]:hover { background: #105ea8;}
+    .result { background: #223344; padding: 1em; margin-top: 1em; border-radius: 8px;}
+    .debug { background: #222; color: #7fef7f; font-size: 0.95em; padding: 0.8em; margin-top: 1em; border-radius: 8px;}
+    @media (max-width: 600px) {
+      .form-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <h1>討伐証最小化計算機（最終日配布100/200選択式）</h1>
+  <h1>討伐証計算</h1>
   <form id="calcForm">
-    <div class="section">
-      <label>現在の討伐証枚数: <input type="number" id="currentTicket" value="0" min="0"></label>
-      <label>現在のスタミナ: <input type="number" id="currentStamina" value="999" min="0" max="999"></label>
-      <label>最終日配布スタミナ: 
-        <select id="finalBonusStamina">
-          <option value="100">100</option>
-          <option value="200">200</option>
-        </select>
-      </label>
-    </div>
-    <div class="section">
-      <label>サンド個数（最大30）:
-        <select id="sandCount"></select>
-      </label>
-      <label>バーガー個数（最大30）:
-        <select id="burgerCount"></select>
-      </label>
-      <label>石割回数（最大5）:
-        <select id="stoneCount"></select>
-      </label>
-      <input type="hidden" id="burgerStamina" value="30">
-      <input type="hidden" id="sandStamina" value="10">
-      <input type="hidden" id="stoneStamina" value="100">
+    <div class="form-grid">
+      <div class="section">
+        <div class="form-row">
+          <label for="currentTicket">現在の討伐証枚数:</label>
+          <input type="number" id="currentTicket" value="0" min="0">
+        </div>
+        <div class="form-row">
+          <label for="currentStamina">現在のスタミナ:</label>
+          <input type="number" id="currentStamina" value="999" min="0" max="999">
+        </div>
+        <div class="form-row">
+          <label for="finalBonusStamina">最終日配布スタミナ:</label>
+          <select id="finalBonusStamina">
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+        </div>
+      </div>
+      <div class="section">
+        <div class="form-row">
+          <label for="sandCount">サンド個数（最大30）:</label>
+          <select id="sandCount"></select>
+        </div>
+        <div class="form-row">
+          <label for="burgerCount">バーガー個数（最大30）:</label>
+          <select id="burgerCount"></select>
+        </div>
+        <div class="form-row">
+          <label for="stoneCount">石割回数（最大5）:</label>
+          <select id="stoneCount"></select>
+        </div>
+        <input type="hidden" id="burgerStamina" value="30">
+        <input type="hidden" id="sandStamina" value="10">
+        <input type="hidden" id="stoneStamina" value="100">
+      </div>
     </div>
     <button type="submit">計算</button>
   </form>
