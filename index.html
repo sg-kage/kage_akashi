@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>討伐証計算</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     body { font-family: sans-serif; margin: 2em; background: #181a1b; color: #eee;}
     .form-grid {
@@ -40,11 +40,11 @@
       <div class="section">
         <div class="form-row">
           <label for="currentTicket">現在の討伐証枚数:</label>
-          <input type="number" id="currentTicket" value="0" min="0">
+          <input type="number" id="currentTicket" value="0" min="0" />
         </div>
         <div class="form-row">
           <label for="currentStamina">現在のスタミナ:</label>
-          <input type="number" id="currentStamina" value="999" min="0" max="999">
+          <input type="number" id="currentStamina" value="999" min="0" max="999" />
         </div>
         <div class="form-row">
           <label for="finalBonusStamina">最終日配布スタミナ:</label>
@@ -67,24 +67,25 @@
           <label for="stoneCount">石割回数（最大5）:</label>
           <select id="stoneCount"></select>
         </div>
-        <input type="hidden" id="burgerStamina" value="30">
-        <input type="hidden" id="sandStamina" value="10">
-        <input type="hidden" id="stoneStamina" value="100">
       </div>
     </div>
     <button type="submit">計算</button>
   </form>
   <div id="result" class="result"></div>
   <div id="debug" class="debug"></div>
+
   <script>
-    // プルダウン生成
-    function fillSelectOptions(id, max) {
+    const MAX_STAMINA = 999;
+    const STAMINA_VALUES = { sand: 10, burger: 30, stone: 100 };
+
+    function fillSelectOptions(id, max, defaultValue = 0) {
       const sel = document.getElementById(id);
       sel.innerHTML = '';
-      for(let i=0; i<=max; i++) {
-        let opt = document.createElement('option');
+      for(let i = 0; i <= max; i++) {
+        const opt = document.createElement('option');
         opt.value = i;
         opt.textContent = i;
+        if(i === defaultValue) opt.selected = true;
         sel.appendChild(opt);
       }
     }
@@ -92,84 +93,98 @@
     fillSelectOptions('burgerCount', 30);
     fillSelectOptions('stoneCount', 5);
 
-    // サンドと配布スタミナは必ず全消費、目標は120→60優先、回数も出力
-    function optimize(ticket, stamina, sandCount, burgerCount, stoneCount, finalBonusStamina) {
-      const sandValue = 10, burgerValue = 30, stoneValue = 100;
-      // サンド・配布は全消費
-      const useSand = sandCount;
-      const sandTicket = useSand; // サンド1個=討伐証1枚
-      const sandStamina = useSand * sandValue;
-      const bonusStamina = finalBonusStamina;
-      const bonusTicket = Math.floor(bonusStamina / 10); // 配布分で得られる討伐証
+    // 最終スタミナ=999-最終日配布スタミナ固定
+    // 討伐証は120 or 60で割った余りができるだけ小さい値でOK
 
-      // まずサンドと配布分を使い切った後の討伐証
+    function optimize(ticket, stamina, sandCount, burgerCountMax, stoneCountMax, finalBonusStamina) {
+      const useSand = sandCount;
+      const sandTicket = useSand; 
+      const sandStamina = useSand * STAMINA_VALUES.sand;
+      const bonusTicket = Math.floor(finalBonusStamina / 10);
       const baseTicket = ticket + sandTicket + bonusTicket;
 
+      const desiredFinalStamina = MAX_STAMINA - finalBonusStamina;
+      const totalStartStamina = stamina + sandStamina + finalBonusStamina;
+      const needStamina = totalStartStamina - desiredFinalStamina;
+      if (needStamina < 0) return null;
+      const needTicket = needStamina / 10;
+
       let best = null;
-      for (let mod of [120, 60, 1]) {
-        // 目標討伐証（modで割り切れる最小値）
-        let targetTicket = (mod === 1) ? baseTicket : (baseTicket % mod === 0 ? baseTicket : Math.ceil(baseTicket / mod) * mod);
-        let needTicket = targetTicket - baseTicket;
-        if (needTicket < 0) continue; // 既クリア
 
-        let needStamina = needTicket * 10;
-        let remain = needStamina;
-        // サンド・配布は既に全消費なので、残りはバーガー→石割
-        let useBurger = Math.min(burgerCount, Math.floor(remain / burgerValue));
-        remain -= useBurger * burgerValue;
-        let useStone = Math.min(stoneCount, Math.floor(remain / stoneValue));
-        remain -= useStone * stoneValue;
+      // modは120と60だけ検討
+      for (let mod of [120, 60]) {
+        let startTarget = Math.ceil((baseTicket + needTicket) / mod) * mod;
 
-        // 余りが出たら（mod=1以外）不成立
-        if (mod !== 1 && remain > 0) continue;
+        // targetTicketをmod分範囲でスライドし、余りが最小となる候補を探す
+        for (let candidate = startTarget; candidate < startTarget + mod; candidate++) {
+          let addTicket = candidate - baseTicket;
+          if (addTicket < 0) continue;
+          let addStamina = addTicket * 10;
 
-        // 使ったアイテムスタミナ
-        let itemStamina = sandStamina + useBurger * burgerValue + useStone * stoneValue;
-        let totalStaminaUsed = itemStamina + bonusStamina;
-        let finalStamina = stamina + sandStamina + bonusStamina - needStamina + useBurger * burgerValue + useStone * stoneValue;
-        if (finalStamina > 999) finalStamina = 999;
+          let maxBurgerUse = Math.min(burgerCountMax, Math.floor(addStamina / STAMINA_VALUES.burger));
 
-        // 120回数・60回数計算
-        let count120 = Math.floor(targetTicket / 120);
-        let count60 = Math.floor((targetTicket % 120) / 60);
+          for (let useBurger = maxBurgerUse; useBurger >= 0; useBurger--) {
+            let remain = addStamina - useBurger * STAMINA_VALUES.burger;
+            if (remain < 0) continue;
+            if (remain % STAMINA_VALUES.stone !== 0) continue;
+            let useStone = remain / STAMINA_VALUES.stone;
+            if (useStone > stoneCountMax) continue;
 
-        let debugArr = [
-          `目標討伐証=${targetTicket} (mod${mod})`,
-          `必要討伐証=${needTicket}`,
-          `サンド分討伐証=${sandTicket}`,
-          `配布分討伐証=${bonusTicket}`,
-          `必要スタミナ（サンド・配布除く）=${needStamina}`,
-          `サンド${useSand}個, バーガー${useBurger}個, 石割${useStone}回`,
-          `アイテム消費合計=${itemStamina}（サンド:${sandStamina} + バーガー:${useBurger*burgerValue} + 石割:${useStone*stoneValue}）`,
-          `配布スタミナ=${bonusStamina}`,
-          `消費スタミナ合計=${itemStamina + bonusStamina}`,
-          `最終的なスタミナ=${finalStamina}`,
-          `余りスタミナ=${remain}`,
-          `120の回数=${count120}回`,
-          `60の回数=${count60}回`
-        ];
+            let itemStamina = sandStamina + useBurger * STAMINA_VALUES.burger + useStone * STAMINA_VALUES.stone;
+            let finalStaminaCalc = stamina + itemStamina + finalBonusStamina - addStamina;
+            if (finalStaminaCalc !== desiredFinalStamina) continue;
 
-        let res = {
-          useSand, useBurger, useStone,
-          itemStamina, needStamina, needTicket,
-          finalTicket: baseTicket + needTicket,
-          finalStamina,
-          totalStaminaUsed,
-          count120, count60,
-          debug: debugArr,
-          mod
-        };
-        if (!best || (mod < best.mod) || (mod === best.mod && itemStamina < best.itemStamina)) {
-          best = res;
+            let remainder = candidate % mod;
+            let count120 = Math.floor(candidate / 120);
+            let count60 = Math.floor((candidate % 120) / 60);
+
+            let debugArr = [
+              `目標討伐証=${candidate} (mod=${mod})`,
+              `余り=${remainder}`,
+              `必要追加討伐証=${addTicket}`,
+              `サンド: ${useSand}個`,
+              `バーガー: ${useBurger}個`,
+              `石割: ${useStone}回`,
+              `アイテム消費スタミナ合計: ${itemStamina} (サンド:${sandStamina} + バーガー:${useBurger*STAMINA_VALUES.burger} + 石割:${useStone*STAMINA_VALUES.stone})`,
+              `配布スタミナ: ${finalBonusStamina}`,
+              `消費スタミナ合計: ${addStamina}`,
+              `最終スタミナ: ${finalStaminaCalc}`,
+              `120回数: ${count120}回`,
+              `60回数: ${count60}回`
+            ];
+
+            let res = {
+              useSand,
+              useBurger,
+              useStone,
+              itemStamina,
+              needStamina: addStamina,
+              needTicket: addTicket,
+              finalTicket: candidate,
+              finalStamina: finalStaminaCalc,
+              count120,
+              count60,
+              debug: debugArr,
+              mod,
+              remainder
+            };
+
+            if (!best || remainder < best.remainder || (remainder === best.remainder && itemStamina < best.itemStamina)) {
+              best = res;
+              if (remainder === 0) break;
+            }
+          }
+          if (best && best.remainder === 0) break;
         }
-        if (mod === 120 && remain === 0) break;
-        if (mod === 60 && remain === 0) break;
+        if (best && best.remainder === 0) break;
       }
+
       return best;
     }
 
     document.getElementById('calcForm').addEventListener('submit', function(e) {
       e.preventDefault();
+
       const ticket = Number(document.getElementById('currentTicket').value);
       const stamina = Number(document.getElementById('currentStamina').value);
       const finalBonusStamina = Number(document.getElementById('finalBonusStamina').value);
@@ -177,9 +192,9 @@
       const burgerCount = Number(document.getElementById('burgerCount').value);
       const stoneCount = Number(document.getElementById('stoneCount').value);
 
-      let best = optimize(ticket, stamina, sandCount, burgerCount, stoneCount, finalBonusStamina);
+      const best = optimize(ticket, stamina, sandCount, burgerCount, stoneCount, finalBonusStamina);
 
-      if(!best) {
+      if (!best) {
         document.getElementById('result').innerHTML = `<b>【最適化結果】</b><br>達成できる組み合わせがありません。<br>`;
         document.getElementById('debug').innerHTML = "";
         return;
@@ -190,7 +205,7 @@
         サンド消費: <b>${best.useSand}</b>個<br>
         バーガー消費: <b>${best.useBurger}</b>個<br>
         石割消費: <b>${best.useStone}</b>回<br>
-        消費スタミナ合計: <b>${best.itemStamina + Number(finalBonusStamina)}</b>（アイテム:${best.itemStamina} + 配布:${finalBonusStamina})<br>
+        消費スタミナ合計: <b>${best.itemStamina + finalBonusStamina}</b>（アイテム:${best.itemStamina} + 配布:${finalBonusStamina}）<br>
         最終的な討伐証枚数: <b>${best.finalTicket}</b><br>
         <b>120の回数: ${best.count120} 回</b><br>
         <b>60の回数: ${best.count60} 回</b><br>
