@@ -93,9 +93,7 @@
     fillSelectOptions('burgerCount', 30);
     fillSelectOptions('stoneCount', 5);
 
-    // 最終スタミナ=999-最終日配布スタミナ固定
-    // 討伐証は120 or 60で割った余りができるだけ小さい値でOK
-
+    // 計算関数
     function optimize(ticket, stamina, sandCount, burgerCountMax, stoneCountMax, finalBonusStamina) {
       const useSand = sandCount;
       const sandTicket = useSand; 
@@ -113,20 +111,22 @@
 
       // modは120と60だけ検討
       for (let mod of [120, 60]) {
+        // 目標候補範囲をmod単位で広げて探す
         let startTarget = Math.ceil((baseTicket + needTicket) / mod) * mod;
 
-        // targetTicketをmod分範囲でスライドし、余りが最小となる候補を探す
         for (let candidate = startTarget; candidate < startTarget + mod; candidate++) {
           let addTicket = candidate - baseTicket;
           if (addTicket < 0) continue;
           let addStamina = addTicket * 10;
 
+          // バーガーは最大何個使えるか
           let maxBurgerUse = Math.min(burgerCountMax, Math.floor(addStamina / STAMINA_VALUES.burger));
 
+          // バーガーの個数を変えて石割との組み合わせを調査
           for (let useBurger = maxBurgerUse; useBurger >= 0; useBurger--) {
             let remain = addStamina - useBurger * STAMINA_VALUES.burger;
             if (remain < 0) continue;
-            if (remain % STAMINA_VALUES.stone !== 0) continue;
+            if (remain % STAMINA_VALUES.stone !== 0) continue; // 石割単位に割り切れなければダメ
             let useStone = remain / STAMINA_VALUES.stone;
             if (useStone > stoneCountMax) continue;
 
